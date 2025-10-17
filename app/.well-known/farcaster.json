@@ -1,0 +1,19 @@
+{
+  "version": "1",
+  "name": "Base记账",
+  "subtitle": "区块链智能记账助手",
+  "description": "支持多币种记账、AI智能识别、预算管理的区块链记账应用",
+  "screenshotUrls": [],
+  "iconUrl": "",
+  "splashImageUrl": "",
+  "splashBackgroundColor": "#000000",
+  "homeUrl": "",
+  "webhookUrl": "",
+  "primaryCategory": "finance",
+  "tags": ["accounting", "blockchain", "ai", "finance", "base"],
+  "heroImageUrl": "",
+  "tagline": "智能记账，轻松理财",
+  "ogTitle": "Base记账 - 区块链智能记账助手",
+  "ogDescription": "支持多币种记账、AI智能识别、预算管理的区块链记账应用",
+  "ogImageUrl": ""
+}
