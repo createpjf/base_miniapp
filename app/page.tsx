@@ -13,9 +13,16 @@ import { ExpenseChart } from '@/components/statistics/ExpenseChart'
 import { BudgetTracker } from '@/components/statistics/BudgetTracker'
 import { AssetManager } from '@/components/assets/AssetManager'
 import { BalanceSheet } from '@/components/assets/BalanceSheet'
+import { ClaudeAssistant } from '@/components/ai/ClaudeAssistant'
+import { EmptyState, RecordsEmptyState } from '@/components/ui/EmptyState'
+import { Tabs, SlidingTabs } from '@/components/ui/Tabs'
+import { SimpleFAB } from '@/components/ui/FloatingActionButton'
+import { ToastProvider, useToastActions } from '@/components/ui/Toast'
+import { LoadingSpinner, PageSkeleton } from '@/components/ui/LoadingSpinner'
+import { PerformanceMonitor } from '@/components/performance/PerformanceMonitor'
 import { Token, ExchangeRate, Record } from '@/lib/types'
 
-export default function Home() {
+function HomeContent() {
   const [activeTab, setActiveTab] = useState('home')
   const [tokens, setTokens] = useState<Token[]>([])
   const [exchangeRates, setExchangeRates] = useState<ExchangeRate[]>([])
@@ -32,6 +39,9 @@ export default function Home() {
   const [categoryBalances, setCategoryBalances] = useState<{[key: string]: number}>({})
   const [presetCategory, setPresetCategory] = useState<string | undefined>(undefined)
   const [presetType, setPresetType] = useState<'expense' | 'income' | undefined>(undefined)
+  const [recordsLoading, setRecordsLoading] = useState(false)
+  
+  const toast = useToastActions()
 
   // 获取代币价格
   const fetchPrices = async () => {
@@ -50,15 +60,21 @@ export default function Home() {
 
   // 获取记录数据
   const fetchRecords = async () => {
+    setRecordsLoading(true)
     try {
       const response = await fetch('/api/records')
       if (response.ok) {
         const data = await response.json()
         setRecords(data.records || [])
         calculateCategoryBalances(data.records || [])
+      } else {
+        toast.error('获取记录失败', '请稍后重试')
       }
     } catch (error) {
       console.error('Error fetching records:', error)
+      toast.error('网络错误', '无法连接到服务器')
+    } finally {
+      setRecordsLoading(false)
     }
   }
 
@@ -121,11 +137,16 @@ export default function Home() {
   }
 
   // 处理记录保存
-  const handleRecordSave = (record: Record) => {
-    setShowRecordForm(false)
-    setEditingRecord(null)
-    // 刷新记录数据
-    fetchRecords()
+  const handleRecordSave = async (record: Record) => {
+    try {
+      setShowRecordForm(false)
+      setEditingRecord(null)
+      // 刷新记录数据
+      await fetchRecords()
+      toast.success('记录保存成功', `${record.type === 'income' ? '收入' : '支出'}记录已添加`)
+    } catch (error) {
+      toast.error('保存失败', '请稍后重试')
+    }
   }
 
   // 处理记录编辑
@@ -174,29 +195,56 @@ export default function Home() {
         <div className="lg:max-w-none relative">
         {activeTab === 'home' && (
           <div className="h-screen flex flex-col">
-            {/* 主要内容区域 */}
-            <div className="flex-1 px-4 pt-4 pb-24 overflow-y-auto">
+            {/* 顶部余额卡片 - 更加醒目 */}
+            <div className="flex-shrink-0 px-4 pt-6 pb-4">
+              <div className="glass-card-enhanced p-6 text-center animate-slideInUp">
+                <div className="text-sm text-white/60 mb-2">Total Balance</div>
+                <div className="text-4xl font-bold text-white mb-1">
+                  ${(records.filter(r => r.type === 'income').reduce((sum, r) => sum + r.amount, 0) - 
+                     records.filter(r => r.type === 'expense').reduce((sum, r) => sum + r.amount, 0)).toFixed(2)}
+                </div>
+                <div className="flex justify-center gap-4 mt-3 text-sm">
+                  <div className="flex items-center gap-1">
+                    <span className="text-green-300">↑</span>
+                    <span className="text-white/70">Income:</span>
+                    <span className="text-green-300 font-medium">
+                      ${records.filter(r => r.type === 'income').reduce((sum, r) => sum + r.amount, 0).toFixed(2)}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <span className="text-red-300">↓</span>
+                    <span className="text-white/70">Expense:</span>
+                    <span className="text-red-300 font-medium">
+                      ${records.filter(r => r.type === 'expense').reduce((sum, r) => sum + r.amount, 0).toFixed(2)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* 滚动内容区 */}
+            <div className="flex-1 overflow-y-auto px-4 pb-24 smooth-scroll">
               {/* Categories with Toggle */}
-              <div className="glass-card mb-4">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-white">Categories</h3>
-                  <div className="flex bg-white/20 rounded-lg p-1">
+              <div className="glass-card-enhanced mb-4 animate-slideInUp" style={{ animationDelay: '0.1s' }}>
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-base font-semibold text-white">Categories</h3>
+                  <div className="flex bg-white/20 rounded-lg p-0.5">
                     <button
                       onClick={() => setCategoryType('expense')}
-                      className={`px-3 py-1 rounded-md text-sm font-medium transition-all ${
+                      className={`px-2.5 py-1 rounded text-xs font-medium transition-all ${
                         categoryType === 'expense'
-                          ? 'bg-accent-orange text-white'
-                          : 'text-white/70 hover:text-white'
+                          ? 'bg-accent-orange text-white shadow-sm'
+                          : 'text-white/70'
                       }`}
                     >
                       Expense
                     </button>
                     <button
                       onClick={() => setCategoryType('income')}
-                      className={`px-3 py-1 rounded-md text-sm font-medium transition-all ${
+                      className={`px-2.5 py-1 rounded text-xs font-medium transition-all ${
                         categoryType === 'income'
-                          ? 'bg-accent-lime text-dark-gray'
-                          : 'text-white/70 hover:text-white'
+                          ? 'bg-accent-lime text-dark-gray shadow-sm'
+                          : 'text-white/70'
                       }`}
                     >
                       Income
@@ -204,31 +252,42 @@ export default function Home() {
                   </div>
                 </div>
                 
-                <div className="grid grid-cols-3 gap-2">
+                {/* 4列网格布局 */}
+                <div className="grid grid-cols-4 gap-2">
                   {(categoryType === 'expense' ? [
-                    { name: 'Food & Drink', icon: '🍽️', key: 'expense_food', color: 'text-accent-green', bg: 'bg-accent-green/20' },
-                    { name: 'Transportation', icon: '🚗', key: 'expense_transport', color: 'text-accent-blue-2', bg: 'bg-accent-blue-2/20' },
-                    { name: 'Shopping', icon: '🛍️', key: 'expense_shopping', color: 'text-accent-pink', bg: 'bg-accent-pink/20' },
-                    { name: 'Housing', icon: '🏠', key: 'expense_housing', color: 'text-accent-orange', bg: 'bg-accent-orange/20' },
-                    { name: 'Entertainment', icon: '🎮', key: 'expense_entertainment', color: 'text-accent-yellow', bg: 'bg-accent-yellow/20' },
-                    { name: 'Trade', icon: '💹', key: 'expense_trade', color: 'text-accent-brown', bg: 'bg-accent-brown/20' },
-                    { name: 'Others', icon: '📝', key: 'expense_others', color: 'text-medium-gray', bg: 'bg-medium-gray/20' },
+                    { name: 'Food', icon: '🍽️', key: 'expense_food', color: 'text-accent-green' },
+                    { name: 'Transport', icon: '🚗', key: 'expense_transport', color: 'text-accent-blue-2' },
+                    { name: 'Shopping', icon: '🛍️', key: 'expense_shopping', color: 'text-accent-pink' },
+                    { name: 'Housing', icon: '🏠', key: 'expense_housing', color: 'text-accent-orange' },
+                    { name: 'Entertainment', icon: '🎮', key: 'expense_entertainment', color: 'text-accent-yellow' },
+                    { name: 'Trade', icon: '💹', key: 'expense_trade', color: 'text-accent-brown' },
+                    { name: 'Medical', icon: '💊', key: 'expense_medical', color: 'text-red-300' },
+                    { name: 'Others', icon: '📝', key: 'expense_others', color: 'text-medium-gray' },
                   ] : [
-                    { name: 'Salary', icon: '💰', key: 'income_salary', color: 'text-accent-lime', bg: 'bg-accent-lime/20' },
-                    { name: 'Investment', icon: '📈', key: 'income_investment', color: 'text-accent-blue-1', bg: 'bg-accent-blue-1/20' },
-                    { name: 'Bonus', icon: '🎁', key: 'income_bonus', color: 'text-accent-pink', bg: 'bg-accent-pink/20' },
-                    { name: 'Others', icon: '💵', key: 'income_others', color: 'text-medium-gray', bg: 'bg-medium-gray/20' },
+                    { name: 'Salary', icon: '💰', key: 'income_salary', color: 'text-accent-lime' },
+                    { name: 'Investment', icon: '📈', key: 'income_investment', color: 'text-accent-blue-1' },
+                    { name: 'Bonus', icon: '🎁', key: 'income_bonus', color: 'text-accent-pink' },
+                    { name: 'Others', icon: '💵', key: 'income_others', color: 'text-medium-gray' },
                   ]).map((category, index) => {
                     const balance = categoryBalances[category.key] || 0
                     return (
                       <button 
-                        key={index} 
+                        key={`${categoryType}-${index}`}
                         onClick={() => handleAddRecord(category.name, categoryType)}
-                        className={`${category.bg} rounded-xl p-3 text-center hover:bg-white/30 transition-all`}
+                        className="bg-white/10 rounded-xl p-2.5 text-center hover:bg-white/20 active:scale-95 transition-all touch-feedback group"
+                        style={{
+                          animationDelay: `${index * 50}ms`
+                        }}
                       >
-                        <div className="text-2xl mb-1">{category.icon}</div>
-                        <div className="text-xs text-white/80 mb-1">{category.name}</div>
-                        <div className={`text-sm font-bold ${category.color}`}>${balance.toFixed(2)}</div>
+                        <div className="text-2xl mb-1 group-hover:scale-110 transition-transform duration-200">
+                          {category.icon}
+                        </div>
+                        <div className="text-[10px] text-white/80 mb-0.5 truncate group-hover:text-white transition-colors duration-200">
+                          {category.name}
+                        </div>
+                        <div className={`text-xs font-bold ${category.color} group-hover:scale-105 transition-transform duration-200`}>
+                          ${balance > 999 ? (balance/1000).toFixed(1) + 'K' : balance.toFixed(0)}
+                        </div>
                       </button>
                     )
                   })}
@@ -236,35 +295,58 @@ export default function Home() {
               </div>
 
               {/* Recent Records */}
-              <div className="glass-card">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-white">Recent</h3>
+              <div className="glass-card-enhanced animate-slideInUp" style={{ animationDelay: '0.2s' }}>
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-base font-semibold text-white">Recent</h3>
                   <button 
                     onClick={() => setActiveTab('records')}
-                    className="text-sm text-blue-300 hover:text-blue-200"
+                    className="text-xs text-blue-300 hover:text-blue-200 font-medium"
                   >
-                    View All
+                    View All →
                   </button>
                 </div>
                 
-                {records.length === 0 ? (
-                  <div className="text-center text-white/70 py-8">
-                    No records yet, start accounting!
-                  </div>
-                ) : (
+                {recordsLoading ? (
                   <div className="space-y-3">
-                    {records.slice(0, 5).map((record, index) => (
-                      <div key={record.id} className="flex items-center justify-between py-2">
+                    {Array.from({ length: 3 }).map((_, index) => (
+                      <div key={index} className="flex items-center justify-between py-2 animate-pulse">
                         <div className="flex items-center space-x-3">
-                          <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center">
-                            <span className="text-sm">{record.type === 'income' ? '💰' : '💸'}</span>
-                          </div>
-                          <div>
-                            <div className="text-sm font-medium text-white">{record.description || 'No description'}</div>
-                            <div className="text-xs text-white/60">{record.category} • {new Date(record.date).toLocaleDateString()}</div>
+                          <div className="w-8 h-8 bg-white/10 rounded-full" />
+                          <div className="space-y-2">
+                            <div className="h-4 w-24 bg-white/10 rounded" />
+                            <div className="h-3 w-16 bg-white/10 rounded" />
                           </div>
                         </div>
-                        <div className={`text-sm font-bold ${record.type === 'income' ? 'text-green-400' : 'text-red-400'}`}>
+                        <div className="h-4 w-12 bg-white/10 rounded" />
+                      </div>
+                    ))}
+                  </div>
+                ) : records.length === 0 ? (
+                  <div className="text-center text-white/60 py-8">
+                    <div className="text-4xl mb-2">📝</div>
+                    <div className="text-sm">No records yet</div>
+                    <div className="text-xs text-white/40 mt-1">Tap + to start</div>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {records.slice(0, 5).map((record) => (
+                      <div key={record.id} className="flex items-center justify-between py-2 border-b border-white/10 last:border-b-0 hover:bg-white/5 rounded-lg px-2 transition-colors">
+                        <div className="flex items-center space-x-3 flex-1 min-w-0">
+                          <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center flex-shrink-0">
+                            <span className="text-lg">{record.type === 'income' ? '💰' : '💸'}</span>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm font-medium text-white truncate">
+                              {record.description || record.category}
+                            </div>
+                            <div className="text-xs text-white/50">
+                              {new Date(record.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                            </div>
+                          </div>
+                        </div>
+                        <div className={`text-sm font-bold flex-shrink-0 ${
+                          record.type === 'income' ? 'text-green-300' : 'text-red-300'
+                        }`}>
                           {record.type === 'income' ? '+' : '-'}${record.amount.toFixed(2)}
                         </div>
                       </div>
@@ -547,23 +629,26 @@ export default function Home() {
       </main>
 
       {/* Bottom Navigation - 移动端显示 */}
-      <nav className="fixed bottom-0 left-0 right-0 z-50 px-4 pb-4 lg:hidden">
-        <div className="glass-card">
-          <div className="flex">
+      <nav className="fixed bottom-0 left-0 right-0 z-50 pb-safe lg:hidden">
+        <div className="mx-4 mb-4 glass-card-enhanced">
+          <div className="flex justify-around items-center py-2">
             {tabs.map((tab) => {
               const Icon = tab.icon
+              const isActive = activeTab === tab.id
               return (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`flex-1 flex flex-col items-center py-2 sm:py-3 px-1 sm:px-2 rounded-xl transition-all ${
-                    activeTab === tab.id
-                      ? 'text-blue-300 bg-white/30'
-                      : 'text-white/70 hover:text-white hover:bg-white/10'
+                  className={`flex flex-col items-center py-2 px-3 rounded-xl transition-all touch-feedback ${
+                    isActive
+                      ? 'text-blue-300 bg-white/20 scale-105'
+                      : 'text-white/60 hover:text-white/80 active:scale-95'
                   }`}
                 >
-                  <Icon className="w-4 h-4 sm:w-5 sm:h-5 mb-1 drop-shadow-lg" />
-                  <span className="text-xs font-medium">{tab.label}</span>
+                  <Icon className={`w-5 h-5 mb-1 drop-shadow-lg ${
+                    isActive ? 'animate-pulse' : ''
+                  }`} />
+                  <span className="text-[10px] font-medium">{tab.label}</span>
                 </button>
               )
             })}
@@ -597,18 +682,24 @@ export default function Home() {
       </nav>
 
         {/* 悬浮的Quick Actions图标 */}
-        <div className="fixed right-4 bottom-36 z-50 space-y-3">
+        <div className="fixed right-4 bottom-24 z-50 space-y-3">
+          {/* 添加记录按钮 - 主要操作 */}
           <button
             onClick={() => handleAddRecord()}
-            className="w-16 h-12 glass-button rounded-full flex items-center justify-center hover:bg-white/30 transition-all shadow-lg"
+            className="w-14 h-14 rounded-full flex items-center justify-center shadow-lg hover:shadow-xl active:scale-95 transition-all touch-feedback"
+            style={{
+              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            }}
           >
-            <Plus className="w-8 h-8 text-blue-300" />
+            <Plus className="w-7 h-7 text-white" />
           </button>
+          
+          {/* 相机按钮 - 次要操作 */}
           <button
             onClick={() => setShowCamera(true)}
-            className="w-16 h-12 glass-button rounded-full flex items-center justify-center hover:bg-white/30 transition-all shadow-lg"
+            className="w-12 h-12 glass-button rounded-full flex items-center justify-center shadow-lg hover:shadow-xl active:scale-95 transition-all touch-feedback"
           >
-            <Camera className="w-8 h-8 text-green-300" />
+            <Camera className="w-5 h-5 text-green-300" />
           </button>
         </div>
 
@@ -638,6 +729,27 @@ export default function Home() {
             />
           </div>
         )}
+
+        {/* Claude AI 助手 */}
+        <ClaudeAssistant 
+          records={records}
+          income={records.filter(r => r.type === 'income').reduce((sum, r) => sum + r.amount, 0)}
+          onSuggestion={(suggestion) => {
+            console.log('Claude suggestion:', suggestion)
+            // 可以在这里处理 AI 建议，比如自动填充表单
+          }}
+        />
+
+        {/* 性能监控 */}
+        <PerformanceMonitor />
     </div>
+  )
+}
+
+export default function Home() {
+  return (
+    <ToastProvider>
+      <HomeContent />
+    </ToastProvider>
   )
 }

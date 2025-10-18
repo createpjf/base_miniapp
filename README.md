@@ -16,6 +16,13 @@
 - ✅ AI 识别票据/收据信息（需要 OpenAI API Key）
 - ✅ 自动填充记账表单
 
+### 🤖 Claude AI 助手
+- ✅ 智能记账建议
+- ✅ 财务分析报告
+- ✅ 智能预算规划
+- ✅ 代币投资建议
+- ✅ 实时问答对话
+
 ### 📊 记账功能
 - ✅ 手动记账：收入/支出记录
 - ✅ 多币种支持，自动转换为 USDC 计价
@@ -67,6 +74,9 @@ npm install
 ```env
 # OpenAI API Key for AI recognition
 OPENAI_API_KEY=your_openai_api_key_here
+
+# Claude API Key for AI assistant
+CLAUDE_API_KEY=your_claude_api_key_here
 
 # CoinGecko API Key (optional)
 NEXT_PUBLIC_COINGECKO_API_KEY=your_coingecko_api_key_here

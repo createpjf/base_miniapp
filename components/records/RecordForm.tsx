@@ -119,14 +119,22 @@ export function RecordForm({ onSave, onCancel, initialRecord, presetCategory, pr
   const filteredCategories = categories.filter(cat => cat.type === formData.type)
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="w-full max-w-sm glass-card max-h-[80vh] flex flex-col">
-        <div className="p-4 flex-shrink-0">
-          <h2 className="text-lg font-semibold text-white mb-4 text-center">
-            {initialRecord ? 'Edit Record' : 'Add Record'}
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-end justify-center z-50 animate-in fade-in duration-200">
+      <div className="w-full max-w-lg glass-card-enhanced rounded-t-3xl max-h-[90vh] flex flex-col animate-in slide-in-from-bottom duration-300">
+        {/* 拖动指示器 */}
+        <div className="flex-shrink-0 py-3 flex justify-center">
+          <div className="w-12 h-1 bg-white/30 rounded-full"></div>
+        </div>
+        
+        {/* 标题 */}
+        <div className="px-6 pb-4 flex-shrink-0">
+          <h2 className="text-xl font-bold text-white text-center">
+            {initialRecord ? 'Edit Record' : 'New Record'}
           </h2>
         </div>
-        <div className="flex-1 overflow-y-auto px-4 pb-4">
+        
+        {/* 表单内容 - 滚动区域 */}
+        <div className="flex-1 overflow-y-auto px-6">
           <form id="record-form" onSubmit={handleSubmit} className="space-y-3">
           {/* Type Selection */}
           <div>
@@ -276,13 +284,13 @@ export function RecordForm({ onSave, onCancel, initialRecord, presetCategory, pr
 
           </form>
         </div>
-        {/* Fixed Buttons */}
-        <div className="flex-shrink-0 p-4 border-t border-white/20">
-          <div className="flex space-x-2">
+        {/* 固定底部按钮 */}
+        <div className="flex-shrink-0 p-6 border-t border-white/10 bg-gradient-to-t from-black/20">
+          <div className="grid grid-cols-2 gap-3">
             <button
               type="button"
               onClick={onCancel}
-              className="flex-1 glass-button text-center py-2 text-white hover:bg-red-400/30 hover:text-red-300 transition-all duration-200"
+              className="py-3 rounded-xl bg-white/10 text-white font-medium hover:bg-white/20 active:scale-95 transition-all touch-feedback"
             >
               Cancel
             </button>
@@ -290,7 +298,11 @@ export function RecordForm({ onSave, onCancel, initialRecord, presetCategory, pr
               type="submit"
               form="record-form"
               disabled={loading}
-              className="flex-1 glass-button text-center py-2 text-white hover:bg-green-400/30 hover:text-green-300 transition-all duration-200 disabled:opacity-50 disabled:hover:bg-white/20 disabled:hover:text-white"
+              className="py-3 rounded-xl font-medium active:scale-95 transition-all touch-feedback disabled:opacity-50"
+              style={{
+                background: loading ? 'rgba(255,255,255,0.1)' : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                color: 'white'
+              }}
             >
               {loading ? 'Saving...' : 'Save'}
             </button>
